@@ -3,6 +3,7 @@ import os
 import logging
 import argparse
 import zipfile
+from typing import IO
 import img2pdf
 
 
@@ -25,9 +26,20 @@ class ZipImageFileProxy:
         return self.src_zip.open(self.path).read()
 
 
+def zip2pdf(zip_path: str, outstream: IO):
+    with zipfile.ZipFile(zip_path) as src_zip:
+        zipFileProxyList = []
+        for img in sorted(src_zip.namelist()):
+            try:
+                zipFileProxyList.append(ZipImageFileProxy(src_zip, img))
+            except Exception as e:
+                logging.warning(f"Skipping {img} ({e})")
+        outstream.write(img2pdf.convert(zipFileProxyList))
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("zipfile", metavar="zipfile", type=zip_file)
+    parser.add_argument("zip_path", metavar="zip_path", type=zip_file)
     parser.add_argument(
         "-o",
         "--output",
@@ -42,16 +54,7 @@ def main():
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    outstream = args.output
-
-    with zipfile.ZipFile(args.zipfile) as src_zip:
-        zipFileProxyList = []
-        for img in sorted(src_zip.namelist()):
-            try:
-                zipFileProxyList.append(ZipImageFileProxy(src_zip, img))
-            except Exception as e:
-                logging.warning(f"Skipping {img} ({e})")
-        outstream.write(img2pdf.convert(zipFileProxyList))
+    zip2pdf(args.zip_path, args.output)
 
 
 def zip_file(path: str):
